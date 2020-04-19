@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using MoviesAPi.Entities;
@@ -36,6 +37,12 @@ namespace MoviesAPi.Services
         public Genre GetGenreById(int id)
         {
             return _genres.FindLast(x => x.Id == id);
+        }
+
+        public void AddGenre(Genre genre){
+
+            genre.Id = _genres.Max(x=>x.Id) + 1;            
+            _genres.Add(genre);
         }
     }
 }

@@ -2,7 +2,7 @@ using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace MoviesAPi.Validations
-{
+{      
     public class FirstLetterUppercaseAttribute : ValidationAttribute
     {
         protected  override ValidationResult IsValid(object value, ValidationContext validationContext)

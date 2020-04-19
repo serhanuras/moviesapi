@@ -8,5 +8,7 @@ namespace MoviesAPi.Entities
     {
         Task<List<Genre>> GetAllGenres();
         Genre GetGenreById(int id);
+
+         void AddGenre(Genre genre);
     }
 }

@@ -1,0 +1,6 @@
+WriteToFileHostedService is started
+WriteToFileHostedService is stopped
+WriteToFileHostedService is started
+WriteToFileHostedService is stopped
+WriteToFileHostedService is started
+WriteToFileHostedService is stopped
