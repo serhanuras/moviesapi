@@ -1,11 +1,17 @@
 using System;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using MoviesAPi.Entities;
+using Npgsql.EntityFrameworkCore.PostgreSQL;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Design;
+using Npgsql.NameTranslation;
 
 namespace MoviesAPi.PostgreSqlProvider
 {
-    public class ApplicationDbContext : DbContext
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityRole<long>, long, IdentityUserClaim<long>, IdentityUserRole<long>, IdentityUserLogin<long>, IdentityRoleClaim<long>, IdentityUserToken<long>>
     {
 
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
@@ -14,15 +20,56 @@ namespace MoviesAPi.PostgreSqlProvider
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SequenceHiLo);
+            modelBuilder.ForNpgsqlUseSequenceHiLo();
+
+            modelBuilder.Entity<ApplicationUser>().ToTable("Users");
+            modelBuilder.Entity<IdentityRole<long>>().ToTable("Roles");
+            modelBuilder.Entity<IdentityUserClaim<long>>().ToTable("UsersClaim");
+            modelBuilder.Entity<IdentityRoleClaim<long>>().ToTable("RolesClaim");
+
+            modelBuilder.Entity<IdentityUserLogin<long>>().ToTable("UsersLogin");
+            modelBuilder.Entity<IdentityUserRole<long>>().ToTable("UsersRole");
+            modelBuilder.Entity<IdentityUserToken<long>>().ToTable("UsersToken");
+
             modelBuilder.Entity<MoviesGenres>().HasKey(x => new { x.GenreId, x.MovieId });
             modelBuilder.Entity<MoviesActors>().HasKey(x => new { x.PersonId, x.MovieId });
 
+            ApplySnakeCaseNames(modelBuilder);
+
             SeedData(modelBuilder);
 
-            base.OnModelCreating(modelBuilder);
+
         }
 
-         private void SeedData(ModelBuilder modelBuilder)
+        private void ApplySnakeCaseNames(ModelBuilder modelBuilder)
+        {
+            var mapper = new NpgsqlSnakeCaseNameTranslator();
+
+            foreach (var entity in modelBuilder.Model.GetEntityTypes())
+            {
+                // modify column names
+                foreach (var property in entity.GetProperties())
+                {
+                    property.SetColumnName(mapper.TranslateMemberName(property.GetColumnName()));
+                }
+
+                // modify table name
+                entity.SetTableName(mapper.TranslateMemberName(entity.GetTableName()));
+
+                // move asp_net tables into schema 'identity'
+                if (entity.GetTableName().StartsWith("asp_net_"))
+                {
+                    entity.SetTableName(entity.GetTableName().Replace("asp_net_", string.Empty));
+                    entity.SetSchema("identity");
+                }
+            }
+        }
+
+        private void SeedData(ModelBuilder modelBuilder)
         {
             var adventure = new Genre() { Id = 4, Name = "Adventure" };
             var animation = new Genre() { Id = 5, Name = "Animation" };
@@ -113,7 +160,7 @@ namespace MoviesAPi.PostgreSqlProvider
                     new MoviesActors(){MovieId = sonic.Id, PersonId = jimCarrey.Id, Character = "Dr. Ivo Robotnik", Order = 1}
                 });
         }
-        
+
         public DbSet<Genre> Genres { get; set; }
         public DbSet<Person> People { get; set; }
         public DbSet<Movie> Movies { get; set; }

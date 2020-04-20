@@ -23,6 +23,11 @@ using MoviesAPi.Filters;
 using Microsoft.EntityFrameworkCore;
 using MoviesAPi.PostgreSqlProvider;
 using AutoMapper;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.IdentityModel.Tokens;
+using MoviesAPI.Services;
+using Microsoft.OpenApi.Models;
+using System.Reflection;
 
 namespace MoviesAPi
 {
@@ -49,6 +54,13 @@ namespace MoviesAPi
             .AddNewtonsoftJson()
             .AddXmlDataContractSerializerFormatters();
 
+            services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAPIRequestIO",
+                    builder => builder.WithOrigins("https://www.apirequest.io").WithMethods("GET", "POST").AllowAnyHeader());
+            });
+
+
 
             // services.AddDbContext<ApplicationDbContext>(options =>
             // {
@@ -59,13 +71,13 @@ namespace MoviesAPi
 
             services.AddDbContext<ApplicationDbContext>(options =>
             {
-                options.UseNpgsql(ConnectString,  b => b.MigrationsAssembly("MoviesAPi"));
+                options.UseNpgsql(ConnectString, b => b.MigrationsAssembly("MoviesAPi"));
             });
 
-           
+
 
             services.AddResponseCaching();
-            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+            //services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
             services.AddSingleton<IRepository, InMemoryRepository>();
             //services.AddScoped<IRepository, EFCoreRepository>();
             services.AddTransient<MyActionFilter>();
@@ -73,9 +85,76 @@ namespace MoviesAPi
             // services.AddHostedService<WriteToFileHostedService>();
             services.AddHostedService<HelloWorldHostedService>();
             services.AddAutoMapper(typeof(Startup));
-            services.AddSingleton<IFileStorageService,InAppStorageService>();
+            services.AddSingleton<IFileStorageService, InAppStorageService>();
+            services.AddIdentity<ApplicationUser, IdentityRole<long>>()
+                .AddEntityFrameworkStores<ApplicationDbContext>()
+                .AddDefaultTokenProviders();
+
+            services.AddTransient<HashService>();
+
+            services
+                .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = false,
+                        ValidateAudience = false,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(Configuration["jwt:key"])),
+                        ClockSkew = TimeSpan.Zero
+                    };
+                });
+
+            services.Configure<IdentityOptions>(options =>
+                        {
+                            // Password settings
+                            options.Password.RequireDigit = true;
+                            options.Password.RequiredLength = 8;
+                            options.Password.RequireNonAlphanumeric = false;
+                            options.Password.RequireUppercase = true;
+                            options.Password.RequireLowercase = false;
+
+                            // Lockout settings
+                            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(30);
+                            options.Lockout.MaxFailedAccessAttempts = 10;
+
+                            // // Cookie settings
+                            // options.Cookies.ApplicationCookie.ExpireTimeSpan = TimeSpan.FromDays(150);
+                            // options.Cookies.ApplicationCookie.LoginPath = "/Account/Login";
+
+                            // User settings
+                            options.User.RequireUniqueEmail = true;
+                        });
 
             services.AddHttpContextAccessor();
+
+
+            services.AddSwaggerGen(config =>
+            {
+                config.SwaggerDoc("v1", new OpenApiInfo { Version = "v1", 
+                    
+                    Title = "MoviesAPI",
+                    Description = "This is a Web API for Movies operations",
+                    License = new OpenApiLicense()
+                    {
+                        Name = "MIT"
+                    },
+                    Contact = new OpenApiContact()
+                    {
+                        Name = "",
+                        Email = "",
+                        Url = new Uri("http://www.github.com")
+                    }
+                });
+
+                var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+                config.IncludeXmlComments(xmlPath);
+
+            });
 
         }
 
@@ -136,9 +215,26 @@ namespace MoviesAPi
                 });
             });
 
+
+             app.UseSwagger();
+
+            app.UseSwaggerUI(config =>
+            {
+                config.SwaggerEndpoint("/swagger/v1/swagger.json", "MoviesAPI");
+            });
+
+
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
+            }
+
+            if (!env.IsDevelopment())
+            {
+                app.UseCors();
+                // This policy would be applied at the Web API level
+                //app.UseCors(builder => 
+                //builder.WithOrigins("https://www.apirequest.io").WithMethods("GET", "POST").AllowAnyHeader());
             }
 
             app.UseHttpsRedirection();

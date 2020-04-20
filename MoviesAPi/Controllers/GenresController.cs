@@ -12,6 +12,7 @@ using MoviesAPi.Filters;
 using MoviesAPi.PostgreSqlProvider;
 using MoviesAPi.DTOs;
 using AutoMapper;
+using Microsoft.AspNetCore.Cors;
 
 namespace MoviesAPi.Controllers
 {
@@ -57,13 +58,18 @@ namespace MoviesAPi.Controllers
             //     };
 
             //     genreDTOs.Add(genreDTO);
-                
+
             // }
 
             // return genreDTOs;
         }
 
+
+        [ProducesResponseType(400)]
+        [ProducesResponseType(typeof(GenreDTO), 200)]
         [HttpGet("{Id:int}", Name = "GetGenre")]
+        [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        [EnableCors(PolicyName = "AllowAPIRequestIO")]
         public async Task<ActionResult<GenreDTO>> Get(int id)
         {
 
@@ -113,15 +119,20 @@ namespace MoviesAPi.Controllers
             return NoContent();
         }
 
+        /// <summary>
+        /// Delete a genre
+        /// </summary>
+        /// <param name="id">Id of the genre to delete</param>
+        /// <returns></returns>
         [HttpDelete("{id:int}")]
         public async Task<ActionResult> Delete(int id)
         {
-            var exists = await _dbContext.Genres.AnyAsync(x=>x.Id == id);
+            var exists = await _dbContext.Genres.AnyAsync(x => x.Id == id);
 
-            if(!exists)
+            if (!exists)
                 return NotFound();
 
-            _dbContext.Remove(new Genre() { Id =id});
+            _dbContext.Remove(new Genre() { Id = id });
 
             await _dbContext.SaveChangesAsync();
 
